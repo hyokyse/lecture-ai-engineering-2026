@@ -2,6 +2,7 @@
 
 使い方:
     uv run python -m app.ask "LoRAとは何ですか？"
+    uv run python -m app.ask "LoRAとは何ですか？" 0.7
     uv run python -m app.ask            # 質問を省略すると、講座に固有の質問をする
 
 ツールも会話履歴も持たない「素の」呼び出し。
@@ -13,7 +14,7 @@
 import argparse
 
 from google import genai
-from google.genai import errors
+from google.genai import errors, types
 
 from app.config import MODEL, api_error_message, get_api_key
 
@@ -21,9 +22,13 @@ from app.config import MODEL, api_error_message, get_api_key
 DEFAULT_QUESTION = "AIE2026の講座の宿題にある「3レベル」とは何ですか？"
 
 
-def ask(question: str) -> str:
+def ask(question: str, temperature: float = 1.0) -> str:
     client = genai.Client(api_key=get_api_key())
-    response = client.models.generate_content(model=MODEL, contents=question)
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=question,
+        config=types.GenerateContentConfig(temperature=temperature),
+    )
 
     usage = response.usage_metadata
     if usage is not None:
@@ -38,12 +43,22 @@ def ask(question: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="素のLLMに質問する")
     parser.add_argument("question", nargs="?", default=DEFAULT_QUESTION)
+    parser.add_argument("temperature", nargs="?", default="1.0")
     args = parser.parse_args()
+
+    try:
+        temperature = float(args.temperature)
+    except ValueError:
+        print("Invalid temp")
+        return
+    if not 0.0 <= temperature <= 2.0:
+        print("Invalid temp")
+        return
 
     print(f"[model] {MODEL}")
     print(f"[質問] {args.question}\n")
     try:
-        print(ask(args.question))
+        print(ask(args.question, temperature))
     except errors.APIError as e:
         print(api_error_message(e.code, e.message))
         raise SystemExit(1)

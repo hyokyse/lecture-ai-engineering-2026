@@ -30,6 +30,10 @@ uv run pytest -q
 uv run python -m app.ask "LoRAとは何ですか？"
 ```
 
+回答後は同じ会話の続きとして質問できます。`/exit` または `/quit` で終了します。
+起動時に温度を指定する場合は第2引数に渡します（例: `uv run python -m app.ask "LoRAとは？" 0.7`）。
+指定した温度は、その対話を終了するまで使われます。
+
 詳しい手順は [lectures/01/problem.md](lectures/01/problem.md) を見てください。
 
 ## 構成

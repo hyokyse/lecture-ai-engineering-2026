@@ -1,19 +1,22 @@
-"""第1回: 素のLLMに1回だけ質問するスクリプト。
+"""第1回: 素のLLMに質問するスクリプト。
 
 使い方:
     uv run python -m app.ask "LoRAとは何ですか？"
     uv run python -m app.ask "LoRAとは何ですか？" 0.7
     uv run python -m app.ask            # 質問を省略すると、講座に固有の質問をする
+    # 続けて質問し、/exit または /quit で終了
 
-ツールも会話履歴も持たない「素の」呼び出し。
+質問のたびに会話履歴を引き継ぐ、ツールを持たない「素の」呼び出し。
 講座に固有のことを聞くと、「分からない」と答えるか、一般論でもっともらしく答える
 （講座の実際とは違う）ことを確かめよう。
 （第3回で、用語集を検索できるエージェントにして改善する）
 """
 
 import argparse
+import time
 
 from google import genai
+from google.genai.chats import Chat
 from google.genai import errors, types
 
 from app.config import MODEL, api_error_message, get_api_key
@@ -22,13 +25,23 @@ from app.config import MODEL, api_error_message, get_api_key
 DEFAULT_QUESTION = "AIE2026の講座の宿題にある「3レベル」とは何ですか？"
 
 
-def ask(question: str, temperature: float = 1.0) -> str:
-    client = genai.Client(api_key=get_api_key())
-    response = client.models.generate_content(
+def create_chat(client: genai.Client, temperature: float) -> Chat:
+    return client.chats.create(
         model=MODEL,
-        contents=question,
         config=types.GenerateContentConfig(temperature=temperature),
     )
+
+
+def ask(question: str, temperature: float = 1.0, *, chat: Chat | None = None) -> str:
+    if chat is None:
+        client = genai.Client(api_key=get_api_key())
+        try:
+            chat = create_chat(client, temperature)
+            response = chat.send_message(question)
+        finally:
+            client.close()
+    else:
+        response = chat.send_message(question)
 
     usage = response.usage_metadata
     if usage is not None:
@@ -54,14 +67,29 @@ def main() -> None:
     if not 0.0 <= temperature <= 2.0:
         print("Invalid temp")
         return
-
     print(f"[model] {MODEL}")
-    print(f"[質問] {args.question}\n")
+    client = genai.Client(api_key=get_api_key())
     try:
-        print(ask(args.question, temperature))
+        chat = create_chat(client, temperature)
+        question = args.question
+        while True:
+            print(f"[質問] {question}\n")
+            started = time.perf_counter()
+            answer = ask(question, temperature, chat=chat)
+            elapsed = time.perf_counter() - started
+            print(f"{answer}\n[RT] {elapsed:.2f}秒\n")
+
+            try:
+                question = input("質問> ")
+            except EOFError:
+                break
+            if question.strip() in {"/exit", "/quit"}:
+                break
     except errors.APIError as e:
         print(api_error_message(e.code, e.message))
         raise SystemExit(1)
+    finally:
+        client.close()
 
 
 if __name__ == "__main__":

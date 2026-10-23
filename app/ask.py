@@ -77,7 +77,12 @@ def main() -> None:
             started = time.perf_counter()
             answer = ask(question, temperature, chat=chat)
             elapsed = time.perf_counter() - started
-            print(f"{answer}\n[RT] {elapsed:.2f}秒\n")
+            print(
+                f"{answer}\n"
+                f"[RT] {elapsed:.2f}秒\n"
+                f"[TEMP] {temperature}\n"
+                f"[MODEL] {MODEL}\n"
+            )
 
             try:
                 question = input("質問> ")

@@ -45,9 +45,11 @@ def test_main_uses_default_temperature(monkeypatch, capsys):
     assert output.count("[RT]") == 2
     assert "[RT] 0.25秒" in output
     assert "[RT] 1.00秒" in output
+    assert output.count("\n[TEMP] 1.0\n") == 2
+    assert output.count(f"\n[MODEL] {ask_module.MODEL}\n") == 2
 
 
-def test_main_keeps_cli_temperature_for_followup_questions(monkeypatch):
+def test_main_keeps_cli_temperature_for_followup_questions(monkeypatch, capsys):
     received = {"temperatures": [], "questions": []}
 
     class FakeChat:
@@ -79,6 +81,9 @@ def test_main_keeps_cli_temperature_for_followup_questions(monkeypatch):
 
     assert received["temperatures"] == [0.7]
     assert received["questions"] == ["最初", "続き"]
+    output = capsys.readouterr().out
+    assert output.count("\n[TEMP] 0.7\n") == 2
+    assert output.count(f"\n[MODEL] {ask_module.MODEL}\n") == 2
 
 
 @pytest.mark.parametrize("exit_command", ["/exit", "/quit"])
